@@ -770,20 +770,22 @@ const v = ACTIVE_VARIANTS[Math.floor(Math.random() * ACTIVE_VARIANTS.length)]
 
 | 役割 | size | weight | line-height | letter-spacing | max-width |
 |---|---|---|---|---|---|
-| Hero H1 | §3〜§5 参照 | §3〜§5 参照 | `1.1` | `-0.03em` | `14em`（約14文字で折り返す） |
-| Section H2 | §3〜§5 参照 | §3〜§5 参照 | `1.2` | `-0.02em` | `20em` |
-| Card H3 | `1.25rem` | `600` | `1.3` | `-0.01em` | 制限なし |
-| Body | `1rem` | `400` | `1.75` | `0` | `42ch`（散文の読みやすい上限） |
-| Caption | `0.875rem` | `400` | `1.6` | `0` | 制限なし |
-| Button | `0.9375rem` | `600` | `1` | `0.01em` | 制限なし |
+| Hero H1 | §3〜§5 参照 | §3〜§5 参照 | `1.1` | `0.02em` | `14em`（約14文字で折り返す） |
+| Section H2 | §3〜§5 参照 | §3〜§5 参照 | `1.2` | `0.02em` | `20em` |
+| Card H3 | `1.25rem` | `600` | `1.3` | `0.01em` | 制限なし |
+| Body | `1rem` | `400` | `1.75` | `0.05em` | `42ch`（日本語で約30〜35文字） |
+| Caption | `0.875rem` | `400` | `1.6` | `0.05em` | 制限なし |
+| Button | `0.9375rem` | `600` | `1` | `0.02em` | 制限なし |
+
+> **letter-spacing の考え方**: このプロジェクトの見出しフォント（Inter / Geist / Plus Jakarta Sans）は欧文フォントで、日本語は OS フォールバック（Hiragino / Meiryo）で描画される。CSS の `letter-spacing` は両者に同じ値が適用されるため、欧文の「大サイズで詰める」ルールを適用すると日本語部分が詰まりすぎる。日本語テキストが主体の場合は `0` または正値が正しい。欧文のみの要素（ロゴ・全角英数字なし）は別途 `-0.02em` を指定してよい。
 
 **視覚的意図（なぜこの値か）**:
 
 - **Hero H1 の line-height: 1.1** — 見出しを「塊」として視覚的にまとめる。1.4 以上だと行間が間延びして迫力が失われる
-- **Hero H1 の letter-spacing: -0.03em** — 大サイズの文字は字間が広く見えるため詰める。日本語フォントには正値を設定しない
+- **Hero H1 の letter-spacing: 0.02em** — 日本語全角文字の字間を微開きにして可読性を上げる。W3C JLREQ 推奨
 - **Hero H1 の max-width: 14em** — 日本語 H1 は 1 行あたり 10〜14 文字が理想。それ以上はスキャンが難しくなる
-- **Body の max-width: 42ch** — 1 行あたり 35〜45 文字が読みやすい行長の上限（洋文 66ch の和文換算）
-- **Body の line-height: 1.75** — 日本語本文は欧文より行間を広く取る。1.5 以下だと窮屈に見える
+- **Body の max-width: 42ch** — `ch` 単位は欧文フォントの "0" 幅基準。Inter / Geist 使用時は 1ch ≒ 0.6em のため、42ch ≒ 約 672px ≒ 日本語 30〜35 文字相当。JLREQ 推奨の 30〜40 文字に収まる
+- **Body の line-height: 1.75** — 日本語本文は欧文より行間を広く取る。W3C JLREQ が 1.5〜1.6 以上を推奨。1.5 以下だと窮屈に見える
 
 ### 8.2 フォントウェイトの使い方
 
@@ -821,7 +823,8 @@ const v = ACTIVE_VARIANTS[Math.floor(Math.random() * ACTIVE_VARIANTS.length)]
 **禁止パターン**:
 - 見出しに `text-wrap: wrap`（デフォルト）を使わない。必ず `balance` を指定する
 - `white-space: nowrap` を H1/H2 に使わない（モバイルでオーバーフローする）
-- 見出しに `letter-spacing` の正値（`0.05em` など）を設定しない。詰める方向（負値）のみ許容
+- 日本語テキストを含む要素に `letter-spacing` の負値を設定しない（全角文字が詰まりすぎる）
+- `font-style: italic` を日本語テキストに使わない（日本語フォントに italic バリアントがないため OS が擬似斜体を生成し汚い。強調には `font-weight` を使う）
 
 ### 8.4 レスポンシブ時の文字サイズ制約
 
@@ -847,14 +850,14 @@ const v = ACTIVE_VARIANTS[Math.floor(Math.random() * ACTIVE_VARIANTS.length)]
   --leading-heading: 1.2;
   --leading-body:    1.75;
 
-  /* letter-spacing */
-  --tracking-hero:    -0.03em;
-  --tracking-heading: -0.02em;
-  --tracking-body:     0em;
+  /* letter-spacing（日本語テキスト対応: 正値または0のみ） */
+  --tracking-hero:    0.02em;
+  --tracking-heading: 0.02em;
+  --tracking-body:    0.05em;  /* W3C JLREQ 推奨 */
 
   /* max-width（テキスト行長制限） */
   --measure-hero:  14em;   /* Hero H1: 10〜14文字で折り返す */
-  --measure-prose: 42ch;   /* Body: 散文の読みやすい上限 */
+  --measure-prose: 42ch;   /* Body: Inter使用時 ≒ 日本語30〜35文字 */
   --measure-h2:    20em;   /* Section H2 */
 }
 ```
@@ -867,11 +870,55 @@ AIが新しいコンポーネントを作るたびに以下を確認すること
 
 - [ ] H1/H2 に `text-wrap: balance` が付いているか
 - [ ] H1 の `max-width` が `14em` 以下になっているか
-- [ ] Body テキストの `max-width` が `42ch` (`max-w-2xl`) 以下になっているか
+- [ ] Body テキストの `max-width` が `42ch` 以下になっているか
 - [ ] `line-height` が §8.1 の値になっているか（Body は 1.75 以上）
-- [ ] `letter-spacing` が負値または 0 になっているか（正値禁止）
-- [ ] フォントウェイトが §8.2 の役割に対応しているか
+- [ ] 日本語テキストに `letter-spacing` の負値が使われていないか
+- [ ] `font-style: italic` が日本語テキストに使われていないか
+- [ ] フォントウェイトが §8.2 の役割に対応しているか（100〜300 は日本語に使わない）
+- [ ] `font-size` が `px` ではなく `rem` で指定されているか
 - [ ] モバイル（< 768px）で H1 が 2 行以内に収まるか
+- [ ] Caption / 小テキストが `0.75rem`（12px）以上になっているか
+
+### 8.7 フォントファミリー・フォールバックスタック
+
+next/font は `latin` サブセットのみをロードするため、日本語文字は OS のシステムフォントで描画される。フォールバックチェーンを明示しないと OS ごとに見た目が大きく変わる。
+
+```css
+/* app/globals.css — フォントファミリー定義 */
+:root {
+  --font-fallback-ja:
+    "Hiragino Kaku Gothic Pro",  /* macOS 10.6+, iOS */
+    "Hiragino Sans",             /* macOS 10.11+ */
+    "Meiryo",                    /* Windows Vista+ */
+    "MS PGothic",                /* Windows XP */
+    "Noto Sans CJK JP",          /* Android / Linux */
+    sans-serif;
+}
+
+body {
+  font-family: var(--font-sans), var(--font-fallback-ja);
+}
+```
+
+> AI への指示: フォントを指定する際は `var(--font-sans)` 単体で終わらせない。必ず `var(--font-fallback-ja)` を後続させる。
+
+**OS 別の描画結果（参考）**:
+
+| OS | 日本語フォント | 特徴 |
+|---|---|---|
+| macOS / iOS | Hiragino Kaku Gothic Pro | きれいで読みやすい。ウェイト 400/700 が自然 |
+| Windows 11 | Meiryo | やや横長。ウェイト 400/700 |
+| Android | Noto Sans CJK JP | Google 標準。バランスが良い |
+
+**フォント関連の禁止パターン（まとめ）**:
+
+| 禁止 | 理由 | 代替 |
+|---|---|---|
+| `font-style: italic` を日本語テキストに使う | italic バリアントなし → 擬似斜体（oblique）が生成されて汚い | 強調は `font-weight` の変化で行う |
+| `font-weight: 100〜300` を日本語テキストに使う | 日本語フォントは 400 / 700 の 2 ウェイトのみ。細ウェイトは 400 で代替表示される | 最低 `font-weight: 400` を使う |
+| `font-size` を `px` 固定で指定する（`html` タグ含む） | ブラウザのフォントサイズ設定（アクセシビリティ機能）を無視する | `rem` で指定する |
+| テキストを `0.75rem`（12px）以下にする | 日本語の最小可読サイズは 12px。それ以下は視認不可 | Caption は `0.875rem`（14px）を最小とする |
+| カスタム日本語フォントファイルをフルセットで配信する | 日本語フォントは 2MB+ になる。ページ表示が大幅に遅くなる | システムフォントフォールバックを使う |
 
 ---
 
