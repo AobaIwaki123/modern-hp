@@ -19,7 +19,7 @@ export function HeroA({ config }: Props) {
   return (
     <section
       className="relative min-h-screen flex items-center justify-center overflow-hidden"
-      style={{ background: isDesktop ? 'var(--color-bg)' : config.mobileGradient }}
+      style={{ background: isDesktop ? '#0f172a' : config.mobileGradient }}
     >
       {isDesktop && (
         <div className="absolute inset-0 z-0">
@@ -28,21 +28,10 @@ export function HeroA({ config }: Props) {
           </Suspense>
         </div>
       )}
-      {!isDesktop && (
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background:
-              'radial-gradient(ellipse 80% 60% at 50% -10%, var(--color-brand-light) 0%, transparent 70%)',
-            opacity: 0.15,
-          }}
-          aria-hidden="true"
-        />
-      )}
       <div className="relative z-10 max-w-5xl mx-auto px-4 text-center">
         <p
           className="text-sm tracking-widest uppercase mb-6"
-          style={{ color: isDesktop ? 'var(--color-text-muted)' : 'rgba(255,255,255,0.8)' }}
+          style={{ color: 'rgba(255,255,255,0.7)' }}
         >
           AI × 人材マッチング
         </p>
@@ -50,7 +39,7 @@ export function HeroA({ config }: Props) {
           className="heading-ja font-extrabold mb-6 mx-auto"
           style={{
             fontSize: 'clamp(2.5rem, 5vw, 4rem)',
-            color: isDesktop ? 'var(--color-text)' : '#ffffff',
+            color: '#ffffff',
             lineHeight: 'var(--leading-hero)',
             letterSpacing: 'var(--tracking-hero)',
             maxWidth: 'var(--measure-hero)',
@@ -60,8 +49,8 @@ export function HeroA({ config }: Props) {
         </h1>
         <p
           className="body-ja text-lg mb-10 mx-auto"
-          style={{ 
-            color: isDesktop ? 'var(--color-text-muted)' : 'rgba(255,255,255,0.9)',
+          style={{
+            color: 'rgba(255,255,255,0.8)',
             lineHeight: 'var(--leading-body)',
             letterSpacing: 'var(--tracking-body)',
             maxWidth: 'var(--measure-prose)',
@@ -73,10 +62,7 @@ export function HeroA({ config }: Props) {
           <Link
             href="/contact"
             className="px-8 py-4 rounded-lg font-semibold text-base transition-opacity hover:opacity-90 shadow-lg"
-            style={{ 
-              background: isDesktop ? 'var(--color-brand)' : '#ffffff',
-              color: isDesktop ? '#ffffff' : 'var(--color-brand)'
-            }}
+            style={{ background: 'var(--color-brand)', color: '#ffffff' }}
           >
             {config.primaryCta}
           </Link>

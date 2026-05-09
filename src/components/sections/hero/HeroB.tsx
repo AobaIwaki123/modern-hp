@@ -6,8 +6,8 @@ import { Suspense } from 'react'
 import type { VariantConfig } from '@/lib/variants/config'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 
-const FloatingRings = dynamic(
-  () => import('@/components/canvas/FloatingRings'),
+const WireframeIcosahedron = dynamic(
+  () => import('@/components/canvas/WireframeIcosahedron'),
   { ssr: false }
 )
 
@@ -28,7 +28,7 @@ export function HeroB({ config }: Props) {
               <div className="w-24 h-24 rounded-full border border-purple-500/30 animate-ping" />
             </div>
           }>
-            <FloatingRings />
+            <WireframeIcosahedron />
           </Suspense>
         </div>
       )}
