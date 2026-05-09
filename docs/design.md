@@ -622,33 +622,35 @@ export function FAQSection() {
 初回アクセス
      │
      ▼
-middleware.ts
-  バリアントCookieなし？
-     │ Yes
-     ▼
-  ランダム割り当て (A/B/C 各33%)
-  Cookie: variant=A|B|C
-  maxAge: 30日
-     │
-     ▼
-RSC page.tsx
-  cookies().get('variant') → 'A'
-     │
-     ▼
-  <LandingPage variant="A" />
-  <html data-variant="A">
+src/proxy.ts（Next.js 新ファイル規約。旧 middleware.ts に相当）
+  バリアント Cookie なし？
+         │ Yes
+         ▼
+       ?__variant=X クエリあり？
+         │ Yes → Cookie に強制セット（QA 用、maxAge: 30日）
+         │ No  → ACTIVE_VARIANTS からランダム割り当て（現在: A / C 50%ずつ）
+         │       Cookie: variant=A|C, maxAge: 30日, httpOnly
+         ▼
+RSC app/layout.tsx
+  cookies().get('variant')?.value ?? 'A'
+  → <html data-variant="A|B|C">
+
+RSC app/(marketing)/page.tsx
+  cookies().get('variant')?.value ?? 'A'
+  → variantConfig[variant] を取得
+  → 対応する Hero コンポーネントをレンダリング
 ```
 
-### 7.2 ファイル構成（A/B テスト対応追加分）
+### 7.2 ファイル構成（A/B テスト対応）
 
 ```
 src/
-├── middleware.ts                        # バリアント Cookie 割り当て
+├── proxy.ts                             # バリアント Cookie 割り当て（Next.js 新ファイル規約。旧 middleware.ts）
 │
 ├── lib/
 │   └── variants/
-│       ├── types.ts                     # export type Variant = 'A' | 'B' | 'C'
-│       └── config.ts                    # バリアントごとの機能フラグ
+│       ├── types.ts                     # Variant 型（RSC / Server Action 用。DB enum から派生）
+│       └── config.ts                    # バリアントごとの設定値（VariantConfig 型）
 │
 └── components/
     ├── sections/
@@ -662,49 +664,76 @@ src/
         └── FloatingSpheres.tsx          # Concept C 専用
 ```
 
+> **proxy.ts と types.ts の Variant 型が別定義になっている理由**: `proxy.ts` は Edge Runtime で動くため `@/lib/db/schema` をインポートできない。`proxy.ts` のみローカルで `type Variant = 'A' | 'B' | 'C'` を定義する。RSC / Server Action 側は `lib/variants/types.ts` の型を使う。
+
 ### 7.3 実装パターン
 
 ```typescript
-// lib/variants/types.ts
-// pgEnum を唯一の source of truth にする。
-// VARIANTS 配列はランタイムで使う値として pgEnum から直接取得し、
-// Variant 型はその配列から派生させる（独立した string literal 定義は持たない）。
-import { abVariantEnum } from '@/lib/db/schema'
+// src/proxy.ts（Next.js 新ファイル規約。旧 middleware.ts に相当）
+// Edge Runtime 制約のため @/lib/db/schema はインポートできない → Variant 型をローカル定義
+type Variant = 'A' | 'B' | 'C'
+const VARIANTS: Variant[] = ['A', 'B', 'C']
 
-export const VARIANTS = abVariantEnum.enumValues  // ['A', 'B', 'C']
-export type Variant = typeof VARIANTS[number]
-
-// lib/variants/config.ts
-export const variantConfig: Record<Variant, {
-  show3D: boolean
-  font: string
-  primaryCta: string
-  ctaHeadline: string
-}> = {
-  A: { show3D: true, font: 'Inter',             primaryCta: '無料で相談する',      ctaHeadline: 'まず、話してみませんか。' },
-  B: { show3D: true, font: 'Geist',             primaryCta: '今すぐ始める',        ctaHeadline: '今が、動くタイミングだ。' },
-  C: { show3D: true, font: 'Plus Jakarta Sans', primaryCta: 'まずは話を聞いてみる', ctaHeadline: '一緒に、次のステップを考えよう。' },
-}
-
-// middleware.ts
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const res = NextResponse.next()
-  if (!request.cookies.get('variant')) {
-    const v = VARIANTS[Math.floor(Math.random() * VARIANTS.length)]
-    res.cookies.set('variant', v, { maxAge: 60 * 60 * 24 * 30, httpOnly: true })
+
+  // QA 用: ?__variant=A で強制表示（Cookie を上書き）
+  const forced = request.nextUrl.searchParams.get('__variant') as Variant | null
+  if (forced && (VARIANTS as string[]).includes(forced)) {
+    res.cookies.set('variant', forced, { maxAge: 60 * 60 * 24 * 30, httpOnly: true, path: '/' })
+    return res
   }
+
+  // 初回アクセス時のみランダム割り当て
+  if (!request.cookies.get('variant')) {
+    const ACTIVE_VARIANTS: Variant[] = ['A', 'C']  // Phase 2 で ['A', 'B', 'C'] に変更
+    const v = ACTIVE_VARIANTS[Math.floor(Math.random() * ACTIVE_VARIANTS.length)]
+    res.cookies.set('variant', v, { maxAge: 60 * 60 * 24 * 30, httpOnly: true, path: '/' })
+  }
+
   return res
 }
 
-// app/(marketing)/page.tsx (RSC)
-export default async function Page() {
-  const variant = (await cookies()).get('variant')?.value as Variant ?? 'A'
-  return <LandingPage variant={variant} />
+export const config = {
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)'],
+}
+
+// lib/variants/types.ts（RSC / Server Action 用）
+// pgEnum を source of truth にし、Variant 型を派生させる
+import { abVariantEnum } from '@/lib/db/schema'
+export const VARIANTS = abVariantEnum.enumValues  // ['A', 'B', 'C']
+export type Variant = (typeof VARIANTS)[number]
+
+// lib/variants/config.ts（実際のフィールドは以下の通り）
+export type VariantConfig = {
+  show3D: boolean
+  font: string
+  heroHeadline: string
+  heroSubcopy: string
+  primaryCta: string
+  secondaryCta: string
+  ctaHeadline: string
+  ctaSubcopy: string
+  mobileGradient: string  // モバイル時の 3D 代替グラデーション
+}
+
+// app/(marketing)/page.tsx（RSC）
+export default async function LandingPage() {
+  const variant = ((await cookies()).get('variant')?.value ?? 'A') as Variant
+  const config = variantConfig[variant]
+  return (
+    <>
+      {variant === 'A' && <HeroA config={config} />}
+      {variant === 'B' && <HeroB config={config} />}
+      {variant === 'C' && <HeroC config={config} />}
+      {/* 共通セクション */}
+    </>
+  )
 }
 
 // app/layout.tsx
 export default async function RootLayout({ children }) {
-  const variant = (await cookies()).get('variant')?.value ?? 'A'
+  const variant = ((await cookies()).get('variant')?.value ?? 'A') as Variant
   return <html lang="ja" data-variant={variant}>...</html>
 }
 ```
@@ -717,38 +746,26 @@ export default async function RootLayout({ children }) {
 - コンバージョン率 = バリアント別の投稿件数 / セッション数（将来: page_views テーブル追加）
 - 判定: 最低4週間 / バリアントあたり30件の投稿で統計的有意性を確認
 
-**勝者決定後**: middleware で1バリアントに固定し、負けたバリアントのコードは削除する。
+**勝者決定後**: `proxy.ts` の `ACTIVE_VARIANTS` を勝者1バリアントに固定し、負けたバリアントのコードは削除する。
 
-### 7.5 Vercel ダッシュボードでのバリアント強制確認
+### 7.5 バリアント強制確認（開発・QA）
 
 ```
-?__variant=A  →  開発・QA 用に特定バリアントを強制表示（middleware で対応）
+?__variant=A  →  特定バリアントを強制表示（proxy.ts 実装済み）
+?__variant=B
+?__variant=C
 ```
 
-```typescript
-// middleware.ts に追加
-const forced = request.nextUrl.searchParams.get('__variant') as Variant | null
-if (forced && VARIANTS.includes(forced)) {
-  res.cookies.set('variant', forced, { maxAge: 60 * 60 })
-}
-```
+Cookie が上書きされるため、以降のアクセスでも強制バリアントが維持される（maxAge: 30日）。
 
-### 7.6 A/B テスト MVP 推奨プラン（2バリアントから開始）
+### 7.6 A/B テスト MVP プラン（現在: Phase 1 実施中）
 
-3バリアント同時実施はサンプル収集期間が3倍かかる。初回リリースは**A vs C の2バリアント**から始め、勝者確定後に B を加えた第2フェーズに移行することを推奨する。
-
-| フェーズ | バリアント | 狙い |
+| フェーズ | バリアント | 状態 |
 |---|---|---|
-| Phase 1（4〜8週間） | A: CONNECTED vs C: HUMAN | コントラストが最大（明度・トーン・3D表現すべて異なる）。「信頼×知性」vs「温かみ×寄り添い」の優劣を早期検証 |
-| Phase 2（勝者確定後） | 勝者 vs B: BOLD | ダークモード・ハイクラス訴求の有効性を追加検証 |
+| Phase 1（4〜8週間） | A: CONNECTED vs C: HUMAN | **実施中**（proxy.ts の ACTIVE_VARIANTS = ['A', 'C']） |
+| Phase 2（勝者確定後） | 勝者 vs B: BOLD | 未着手 |
 
-**MVP 切り替え方法**: Phase 1 では `VARIANTS` を `['A', 'C']` に絞り、middleware の割り当てを50/50にする。
-
-```typescript
-// middleware.ts — Phase 1 設定
-const ACTIVE_VARIANTS: Variant[] = ['A', 'C']  // Phase 2 で ['A', 'B', 'C'] に戻す
-const v = ACTIVE_VARIANTS[Math.floor(Math.random() * ACTIVE_VARIANTS.length)]
-```
+**Phase 2 への切り替え方法**: `src/proxy.ts` の `ACTIVE_VARIANTS` を `['A', 'B', 'C']` に変更するだけ。
 
 **計測変数一覧** (Phase 1):
 | 変数 | A | C |

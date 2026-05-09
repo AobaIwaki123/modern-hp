@@ -114,7 +114,7 @@ hp-project/
 ├── drizzle/
 │   └── migrations/                 # Drizzle マイグレーションファイル (自動生成)
 │
-├── middleware.ts                    # A/B テスト バリアント Cookie 割り当て
+├── src/proxy.ts                     # バリアント Cookie 割り当て（Next.js 新ファイル規約。旧 middleware.ts）
 ├── .env.example                    # 環境変数テンプレート
 ├── .env.local                      # ローカル環境変数 (gitignore)
 ├── drizzle.config.ts               # Drizzle Kit 設定
@@ -203,7 +203,7 @@ hp-project/
 
 ```
 1. [x] globals.css にバリアント別 CSS カスタムプロパティ定義 (design.md §3〜§5 参照)
-2. [x] middleware.ts — バリアント Cookie 割り当て実装
+2. [x] src/proxy.ts — バリアント Cookie 割り当て実装（Next.js 新ファイル規約）
 3. [x] lib/variants/types.ts, config.ts
 4. [x] LP (/) — 共通セクション (Stats / Services / HowItWorks / Testimonials / CTA)
        コンセプト A のデザイントークンで実装し、後から B/C を追加
